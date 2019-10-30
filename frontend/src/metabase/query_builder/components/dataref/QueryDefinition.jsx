@@ -1,29 +1,32 @@
-import React, { Component, PropTypes } from "react";
+import React from "react";
 
-import FilterList from "../filters/FilterList.jsx";
-import AggregationWidget from "../AggregationWidget.jsx";
+import FilterList from "../FilterList";
+import AggregationName from "../AggregationName";
 
-import Query from "metabase/lib/query";
+import Question from "metabase-lib/lib/Question";
 
-const QueryDefinition = ({ className, object, tableMetadata }) => {
-    const filters = Query.getFilters(object.definition);
-    return (
-        <div className={className} style={{ pointerEvents: "none" }}>
-            { object.definition.aggregation &&
-                <AggregationWidget
-                    aggregation={object.definition.aggregation}
-                    tableMetadata={tableMetadata}
-                />
-            }
-            { filters.length > 0 &&
-                <FilterList
-                    filters={filters}
-                    tableMetadata={tableMetadata}
-                    maxDisplayValues={Infinity}
-                />
-            }
-        </div>
-    );
-}
+const QueryDefinition = ({ className, object, metadata }) => {
+  const query = new Question(
+    {
+      dataset_query: { type: "query", query: object.definition },
+    },
+    metadata,
+  ).query();
+  const aggregations = query.aggregations();
+  const filters = query.filters();
+  return (
+    <div className={className} style={{ pointerEvents: "none" }}>
+      {aggregations.map(aggregation => (
+        <AggregationName
+          aggregation={object.definition.aggregation[0]}
+          query={query}
+        />
+      ))}
+      {filters.length > 0 && (
+        <FilterList filters={filters} maxDisplayValues={Infinity} />
+      )}
+    </div>
+  );
+};
 
 export default QueryDefinition;

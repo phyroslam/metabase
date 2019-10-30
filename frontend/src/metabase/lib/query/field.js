@@ -1,46 +1,92 @@
+import _ from "underscore";
 
+import type {
+  Field as FieldReference,
+  FieldsClause,
+} from "metabase/meta/types/Query";
+import type { Field, FieldValues } from "metabase/meta/types/Field";
+import type { Value } from "metabase/meta/types/Dataset";
 
-import { mbqlEq } from "./util";
+import { add, update, remove, clear } from "./util";
 
-import type { Field } from "metabase/meta/types/Query";
+// returns canonical list of Fields, with nulls removed
+export function getFields(fields: ?FieldsClause): FieldReference[] {
+  return (fields || []).filter(b => b != null);
+}
 
-// gets the target field ID (recursively) from any type of field, including raw field ID, fk->, and datetime-field cast.
-export function getFieldTargetId(field: Field): ?FieldId {
-    if (isRegularField(field)) {
-        return field;
-    } else if (isLocalField(field)) {
-        // $FlowFixMe
-        return field[1];
-    } else if (isForeignKeyField(field)) {
-        // $FlowFixMe
-        return getFieldTargetId(field[2]);
-    } else if (isDatetimeField(field)) {
-        // $FlowFixMe
-        return getFieldTargetId(field[1]);
+// turns a list of Fields into the canonical FieldClause
+export function getFieldClause(fields: FieldReference[]): ?FieldsClause {
+  fields = getFields(fields);
+  if (fields.length === 0) {
+    return undefined;
+  } else {
+    return fields;
+  }
+}
+
+export function addField(
+  fields: ?FieldsClause,
+  newField: FieldReference,
+): ?FieldsClause {
+  return getFieldClause(add(getFields(fields), newField));
+}
+export function updateField(
+  fields: ?FieldsClause,
+  index: number,
+  updatedField: FieldReference,
+): ?FieldsClause {
+  return getFieldClause(update(getFields(fields), index, updatedField));
+}
+export function removeField(
+  fields: ?FieldsClause,
+  index: number,
+): ?FieldsClause {
+  return getFieldClause(remove(getFields(fields), index));
+}
+export function clearFields(fields: ?FieldsClause): ?FieldsClause {
+  return getFieldClause(clear());
+}
+
+// Metadata field "values" type is inconsistent
+// https://github.com/metabase/metabase/issues/3417
+export function getFieldValues(field: ?Field): FieldValues {
+  const values = field && field.values;
+  if (Array.isArray(values)) {
+    if (values.length === 0 || Array.isArray(values[0])) {
+      return values;
+    } else {
+      // console.warn("deprecated field values array!", values);
+      return values.map(value => [value]);
     }
-    console.warn("Unknown field type: ", field);
+  } else if (values && Array.isArray(values.values)) {
+    // console.warn("deprecated field values object!", values);
+
+    if (Array.isArray(values.human_readable_values)) {
+      return _.zip(values.values, values.human_readable_values || {});
+    } else if (Array.isArray(values.values)) {
+      // TODO Atte Keinänen 7/12/17: I don't honestly know why we can have a field in `values` property.
+      return getFieldValues(values);
+    } else {
+      // console.warn("missing field values", field);
+      return [];
+    }
+  } else {
+    // console.warn("missing field values", field);
+    return [];
+  }
 }
 
-export function isRegularField(field: Field): boolean {
-    return typeof field === "number";
+// merge field values and remappings
+export function getRemappings(field: ?Field) {
+  const remappings = (field && field.remappings) || [];
+  const fieldValues = getFieldValues(field);
+  return [...fieldValues, ...remappings];
 }
 
-export function isLocalField(field: Field): boolean {
-    return Array.isArray(field) && mbqlEq(field[0], "field-id");
-}
-
-export function isForeignKeyField(field: Field): boolean {
-    return Array.isArray(field) && mbqlEq(field[0], "fk->");
-}
-
-export function isDatetimeField(field: Field): boolean {
-    return Array.isArray(field) && mbqlEq(field[0], "datetime-field");
-}
-
-export function isExpressionField(field: Field): boolean {
-    return Array.isArray(field) && field.length === 2 && mbqlEq(field[0], "expression");
-}
-
-export function isAggregateField(field: Field): boolean {
-    return Array.isArray(field) && mbqlEq(field[0], "aggregation");
+export function getHumanReadableValue(
+  value: Value,
+  fieldValues?: FieldValues = [],
+) {
+  const fieldValue = _.findWhere(fieldValues, { [0]: value });
+  return fieldValue && fieldValue.length === 2 ? fieldValue[1] : String(value);
 }

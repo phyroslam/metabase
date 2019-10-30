@@ -3,4 +3,10 @@ docs/*
 OSX/*
 target/*
 
+**node_modules
 **metabase.jar
+
+*.db
+
+.dockerignore
+Dockerfile

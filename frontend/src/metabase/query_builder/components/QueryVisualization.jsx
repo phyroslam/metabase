@@ -1,196 +1,197 @@
-import React, { Component, PropTypes } from "react";
-import ReactDOM from "react-dom";
-import { Link } from "react-router";
+/* @flow weak */
 
-import LoadingSpinner from 'metabase/components/LoadingSpinner.jsx';
-import RunButton from './RunButton.jsx';
-import VisualizationSettings from './VisualizationSettings.jsx';
+import React, { Component } from "react";
+import { t } from "ttag";
 
-import VisualizationError from "./VisualizationError.jsx";
-import VisualizationResult from "./VisualizationResult.jsx";
+import LoadingSpinner from "metabase/components/LoadingSpinner";
 
-import Warnings from "./Warnings.jsx";
-import QueryDownloadWidget from "./QueryDownloadWidget.jsx";
-import QuestionShareWidget from "../containers/QuestionShareWidget";
+import VisualizationError from "./VisualizationError";
+import VisualizationResult from "./VisualizationResult";
+import Warnings from "./Warnings";
+import RunButtonWithTooltip from "./RunButtonWithTooltip";
 
-import { formatNumber, inflect } from "metabase/lib/formatting";
 import Utils from "metabase/lib/utils";
-import MetabaseSettings from "metabase/lib/settings";
 
 import cx from "classnames";
-import _ from "underscore";
+
+import Question from "metabase-lib/lib/Question";
+import type { Database } from "metabase/meta/types/Database";
+import type { TableMetadata } from "metabase/meta/types/Metadata";
+import type { DatasetQuery } from "metabase/meta/types/Card";
+
+import type { ParameterValues } from "metabase/meta/types/Parameter";
+
+type Props = {
+  question: Question,
+  originalQuestion: Question,
+  result?: Object,
+  databases?: Database[],
+  tableMetadata?: TableMetadata,
+  tableForeignKeys?: [],
+  tableForeignKeyReferences?: {},
+  onUpdateVisualizationSettings: any => void,
+  onReplaceAllVisualizationSettings: any => void,
+  onOpenChartSettings: any => void,
+  cellIsClickableFn?: any => void,
+  cellClickedFn?: any => void,
+  isRunning: boolean,
+  isRunnable: boolean,
+  isAdmin: boolean,
+  isResultDirty: boolean,
+  isObjectDetail: boolean,
+  runQuestionQuery: any => void,
+  cancelQuery?: any => void,
+  className: string,
+};
+
+type State = {
+  lastRunDatasetQuery: DatasetQuery,
+  lastRunParameterValues: ParameterValues,
+  warnings: string[],
+};
 
 export default class QueryVisualization extends Component {
-    constructor(props, context) {
-        super(props, context);
-        this.runQuery = this.runQuery.bind(this);
+  props: Props;
+  state: State;
 
-        this.state = this._getStateFromProps(props);
-    }
+  constructor(props, context) {
+    super(props, context);
+    this.state = this._getStateFromProps(props);
+  }
 
-    static propTypes = {
-        card: PropTypes.object.isRequired,
-        result: PropTypes.object,
-        databases: PropTypes.array,
-        tableMetadata: PropTypes.object,
-        tableForeignKeys: PropTypes.array,
-        tableForeignKeyReferences: PropTypes.object,
-        setDisplayFn: PropTypes.func.isRequired,
-        onUpdateVisualizationSettings: PropTypes.func.isRequired,
-        onReplaceAllVisualizationSettings: PropTypes.func.isRequired,
-        setSortFn: PropTypes.func.isRequired,
-        cellIsClickableFn: PropTypes.func,
-        cellClickedFn: PropTypes.func,
-        isRunning: PropTypes.bool.isRequired,
-        isRunnable: PropTypes.bool.isRequired,
-        runQueryFn: PropTypes.func.isRequired,
-        cancelQueryFn: PropTypes.func
+  static defaultProps = {
+    // NOTE: this should be more dynamic from the backend, it's set based on the query lang
+    maxTableRows: 2000,
+  };
+
+  _getStateFromProps(props) {
+    return {
+      lastRunDatasetQuery: Utils.copy(props.question.query().datasetQuery()),
+      lastRunParameterValues: Utils.copy(props.parameterValues),
     };
+  }
 
-    static defaultProps = {
-        // NOTE: this should be more dynamic from the backend, it's set based on the query lang
-        maxTableRows: 2000
-    };
-
-    _getStateFromProps(props) {
-        return {
-            lastRunDatasetQuery: Utils.copy(props.card.dataset_query),
-            lastRunParameterValues: Utils.copy(props.parameterValues)
-        };
+  componentWillReceiveProps(nextProps) {
+    // whenever we are told that we are running a query lets update our understanding of the "current" query
+    if (nextProps.isRunning) {
+      this.setState(this._getStateFromProps(nextProps));
     }
+  }
 
-    componentWillReceiveProps(nextProps) {
-        // whenever we are told that we are running a query lets update our understanding of the "current" query
-        if (nextProps.isRunning) {
-            this.setState(this._getStateFromProps(nextProps));
-        }
-    }
+  runQuery = () => {
+    const { isResultDirty } = this.props;
+    // ignore the cache if we're hitting "Refresh" (which we only show if isResultDirty = false)
+    this.props.runQuestionQuery({ ignoreCache: !isResultDirty });
+  };
 
-    queryIsDirty() {
-        // a query is considered dirty if ANY part of it has been changed
-        return (
-            !Utils.equals(this.props.card.dataset_query, this.state.lastRunDatasetQuery) ||
-            !Utils.equals(this.props.parameterValues, this.state.lastRunParameterValues)
-        );
-    }
+  handleUpdateWarnings = warnings => {
+    this.setState({ warnings });
+  };
 
-    isChartDisplay(display) {
-        return (display !== "table" && display !== "scalar");
-    }
+  render() {
+    const {
+      className,
+      question,
+      isRunning,
+      isObjectDetail,
+      isResultDirty,
+      result,
+    } = this.props;
 
-    runQuery() {
-        this.props.runQueryFn();
-    }
-
-    renderHeader() {
-        const { isObjectDetail, isRunning, isAdmin, card, result } = this.props;
-        const isDirty = this.queryIsDirty();
-        const isSaved = card.id != null;
-        const isPublicLinksEnabled = MetabaseSettings.get("public_sharing");
-        return (
-            <div className="relative flex flex-no-shrink mt3 mb1" style={{ minHeight: "2em" }}>
-                <span className="relative z4">
-                  { !isObjectDetail && <VisualizationSettings ref="settings" {...this.props} /> }
-                </span>
-                <div className="absolute flex layout-centered left right z3">
-                    <RunButton
-                        canRun={this.props.isRunnable}
-                        isDirty={isDirty}
-                        isRunning={isRunning}
-                        runFn={this.runQuery}
-                        cancelFn={this.props.cancelQueryFn}
-                    />
-                </div>
-                <div className="absolute right z4 flex align-center" style={{ lineHeight: 0 /* needed to align icons :-/ */ }}>
-                    { !isDirty && this.renderCount() }
-                    { !isObjectDetail &&
-                        <Warnings warnings={this.state.warnings} className="mx2" size={18} />
-                    }
-                    { !isDirty && result && !result.error ?
-                        <QueryDownloadWidget
-                            className="mx1"
-                            card={card}
-                            result={result}
-                        />
-                    : null }
-                    { isSaved && isPublicLinksEnabled && (isAdmin || card.public_uuid) ?
-                        <QuestionShareWidget
-                            className="mx1"
-                            card={card}
-                            isAdmin={isAdmin}
-                        />
-                    : null }
-                </div>
-            </div>
-        );
-    }
-
-    renderCount() {
-        let { result, isObjectDetail, card } = this.props;
-        if (result && result.data && !isObjectDetail && card.display === "table") {
-            return (
-                <div>
-                    { result.data.rows_truncated != null ? ("Showing first ") : ("Showing ")}
-                    <b>{formatNumber(result.row_count)}</b>
-                    { " " + inflect("row", result.data.rows.length) }.
-                </div>
-            );
-        }
-    }
-
-    render() {
-        const { card, databases, isObjectDetail, isRunning, result } = this.props
-        let viz;
-
-        if (!result) {
-            let hasSampleDataset = !!_.findWhere(databases, { is_sample: true });
-            viz = <VisualizationEmptyState showTutorialLink={hasSampleDataset} />
-        } else {
-            let error = result.error;
-
-            if (error) {
-                viz = <VisualizationError error={error} card={card} duration={result.duration} />
-            } else if (result.data) {
-                viz = (
-                    <VisualizationResult
-                        lastRunDatasetQuery={this.state.lastRunDatasetQuery}
-                        onUpdateWarnings={(warnings) => this.setState({ warnings })}
-                        onOpenChartSettings={() => this.refs.settings.open()}
-                        {...this.props}
-                    />
-                );
-            }
-        }
-
-        const wrapperClasses = cx('wrapper full relative mb2 z1', {
-            'flex': !isObjectDetail,
-            'flex-column': !isObjectDetail
-        });
-
-        const visualizationClasses = cx('flex flex-full Visualization z1 px1', {
-            'Visualization--errors': (result && result.error),
-            'Visualization--loading': isRunning
-        });
-
-        return (
-            <div className={wrapperClasses}>
-                {this.renderHeader()}
-                { isRunning && (
-                    <div className="Loading spread flex flex-column layout-centered text-brand z2">
-                        <LoadingSpinner />
-                        <h2 className="Loading-message text-brand text-uppercase my3">Doing science...</h2>
-                    </div>
-                )}
-                <div className={visualizationClasses}>
-                    {viz}
-                </div>
-            </div>
-        );
-    }
+    return (
+      <div className={cx(className, "relative stacking-context")}>
+        {isRunning ? <VisualizationRunningState className="spread z2" /> : null}
+        <VisualizationDirtyState
+          {...this.props}
+          hidden={!isResultDirty || isRunning}
+          className="spread z2"
+        />
+        {!isObjectDetail && (
+          <Warnings
+            warnings={this.state.warnings}
+            className="absolute top right mt2 mr2 z2"
+            size={18}
+          />
+        )}
+        <div
+          className={cx("spread Visualization z1", {
+            "Visualization--errors": result && result.error,
+            "Visualization--loading": isRunning,
+          })}
+        >
+          {result && result.error && isResultDirty ? null : result &&
+            result.error &&
+            !isResultDirty ? (
+            <VisualizationError
+              className="spread"
+              error={result.error}
+              card={question.card()}
+              duration={result.duration}
+            />
+          ) : result && result.data ? (
+            <VisualizationResult
+              {...this.props}
+              className="spread"
+              lastRunDatasetQuery={this.state.lastRunDatasetQuery}
+              onUpdateWarnings={this.handleUpdateWarnings}
+            />
+          ) : !isRunning ? (
+            <VisualizationEmptyState className="spread" />
+          ) : null}
+        </div>
+      </div>
+    );
+  }
 }
 
-const VisualizationEmptyState = ({showTutorialLink}) =>
-    <div className="flex full layout-centered text-grey-1 flex-column">
-        <h1>If you give me some data I can show you something cool. Run a Query!</h1>
-        { showTutorialLink && <Link to="/q#?tutorial" className="link cursor-pointer my2">How do I use this thing?</Link> }
-    </div>
+export const VisualizationEmptyState = ({ className }) => (
+  <div
+    className={cx(className, "flex flex-column layout-centered text-light")}
+  />
+);
+
+export const VisualizationRunningState = ({ className }) => (
+  <div
+    className={cx(
+      className,
+      "Loading flex flex-column layout-centered text-brand",
+    )}
+  >
+    <LoadingSpinner />
+    <h2 className="Loading-message text-brand text-uppercase my3">
+      {t`Doing science`}...
+    </h2>
+  </div>
+);
+
+export const VisualizationDirtyState = ({
+  className,
+  result,
+  isRunnable,
+  isRunning,
+  isResultDirty,
+  runQuestionQuery,
+  cancelQuery,
+  hidden,
+}) => (
+  <div
+    className={cx(className, "Loading flex flex-column layout-centered", {
+      "Loading--hidden pointer-events-none": hidden,
+    })}
+  >
+    <RunButtonWithTooltip
+      className="shadowed"
+      circular
+      compact
+      py={2}
+      px={3}
+      result={result}
+      isRunnable={isRunnable}
+      isRunning={isRunning}
+      isDirty={isResultDirty}
+      onRun={() => runQuestionQuery({ ignoreCache: true })}
+      onCancel={() => cancelQuery()}
+      hidden={hidden}
+    />
+  </div>
+);

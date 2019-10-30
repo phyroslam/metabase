@@ -1,22 +1,51 @@
-import React, { Component, PropTypes } from "react";
-import { Route, IndexRedirect } from 'react-router';
+import React from "react";
+import { Route } from "metabase/hoc/Title";
+import { IndexRedirect, IndexRoute } from "react-router";
+import { t } from "ttag";
+import DataPermissionsApp from "./containers/DataPermissionsApp";
+import DatabasesPermissionsApp from "./containers/DatabasesPermissionsApp";
+import SchemasPermissionsApp from "./containers/SchemasPermissionsApp";
+import TablesPermissionsApp from "./containers/TablesPermissionsApp";
+import CollectionPermissions from "./containers/CollectionsPermissionsApp";
 
-import DataPermissionsApp from "./containers/DataPermissionsApp.jsx";
-import DatabasesPermissionsApp from "./containers/DatabasesPermissionsApp.jsx";
-import SchemasPermissionsApp from "./containers/SchemasPermissionsApp.jsx";
-import TablesPermissionsApp from "./containers/TablesPermissionsApp.jsx";
+const getRoutes = store => (
+  <Route title={t`Permissions`} path="permissions">
+    <IndexRedirect to="databases" />
 
-const getRoutes = (store) =>
-    <Route path="permissions" component={DataPermissionsApp}>
-        <IndexRedirect to="databases" />
-        <Route path="databases" component={DatabasesPermissionsApp} />
-        <Route path="databases/:databaseId/schemas" component={SchemasPermissionsApp} />
-        <Route path="databases/:databaseId/schemas/:schemaName/tables" component={TablesPermissionsApp} />
+    {/* "DATABASES" a.k.a. "data" section */}
+    <Route path="databases" component={DataPermissionsApp}>
+      {/* DATABASES */}
+      <IndexRoute component={DatabasesPermissionsApp} />
 
-        {/* NOTE: this route is to support null schemas, inject the empty string as the schemaName */}
-        <Route path="databases/:databaseId/tables" component={(props) => // eslint-disable-line react/display-name
-            <TablesPermissionsApp {...props} params={{ ...props.params, schemaName: "" }} />
-        }/>
+      {/* SCHEMAS */}
+      <Route path=":databaseId/schemas" component={SchemasPermissionsApp} />
+
+      {/* TABLES */}
+      <Route
+        path=":databaseId/schemas/:schemaName/tables"
+        component={TablesPermissionsApp}
+      />
+
+      {/* TABLES NO SCHEMA */}
+      {/* NOTE: this route is to support null schemas, inject the empty string as the schemaName */}
+      <Route
+        path=":databaseId/tables"
+        component={(
+          props, // eslint-disable-line react/display-name
+        ) => (
+          <TablesPermissionsApp
+            {...props}
+            params={{ ...props.params, schemaName: "" }}
+          />
+        )}
+      />
     </Route>
+
+    {/* "COLLECTIONS" section */}
+    <Route path="collections" component={CollectionPermissions}>
+      <Route path=":collectionId" />
+    </Route>
+  </Route>
+);
 
 export default getRoutes;

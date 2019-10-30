@@ -1,18 +1,32 @@
 # User Guide
 
-**This guide will teach you:**
+**Some basics**
 
-*   [What Metabase does](01-what-is-metabase.md)
-*   [The basics of database terminology](02-database-basics.md)
-*   [Asking questions in Metabase](03-asking-questions.md)
-*   [How to visualize the answers to questions](04-visualizing-results.md)
-*   [Sharing and organizing your saved questions](05-sharing-answers.md)
-*   [Creating dashboards](06-dashboards.md)
-*   [Adding filters to dashboards](07-dashboard-filters.md)
-*   [Creating charts with multiple series](08-multi-series-charting.md)
-*   [Using Pulses for daily emails](09-pulses.md)
-*   [Get answers in Slack with Metabot](10-metabot.md)
-*   [Some helpful tips on building your data model](11-data-model-reference.md)
-*   [Creating SQL Templates](12-sql-parameters.md)
+- [An overview of Metabase](01-what-is-metabase.md)
+- [The basics of databases](02-database-basics.md)
+
+**Exploring and asking questions**
+
+- [Basic exploration in Metabase](03-basic-exploration.md)
+- [Asking questions in Metabase](04-asking-questions.md)
+- [Using the notebook editor to ask custom questions](custom-questions.md)
+- [Using the SQL editor](writing-sql.md)
+- [How to visualize the answers to questions](05-visualizing-results.md)
+
+**Sharing results**
+
+- [Sharing and organizing your saved questions](06-sharing-answers.md)
+- [Creating dashboards](07-dashboards.md)
+- [Adding filters to dashboards](08-dashboard-filters.md)
+- [Creating dashboard charts with multiple series](09-multi-series-charting.md)
+- [Using Pulses for daily emails](10-pulses.md)
+- [Get answers in Slack with Metabot](11-metabot.md)
+
+**More**
+
+- [Referencing your data model while writing SQL](12-data-model-reference.md)
+- [Creating SQL Templates](13-sql-parameters.md)
+- [Getting automatic insights with X-rays](14-x-rays.md)
+- [Setting and getting alerts](15-alerts.md)
 
 Let's get started with an overview of [What Metabase does](01-what-is-metabase.md).

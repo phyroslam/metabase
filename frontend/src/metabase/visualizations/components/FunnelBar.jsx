@@ -1,27 +1,30 @@
 /* @flow */
 
-import React, { Component, PropTypes } from "react";
-import ReactDOM from "react-dom";
+import React, { Component } from "react";
 
-import BarChart from "metabase/visualizations/visualizations/BarChart.jsx";
+import BarChart from "metabase/visualizations/visualizations/BarChart";
 
-import { getSettings } from "metabase/visualizations/lib/settings";
+import { getComputedSettingsForSeries } from "metabase/visualizations/lib/settings/visualization";
 import { assocIn } from "icepick";
 
-import type { VisualizationProps } from "metabase/visualizations";
+import type { VisualizationProps } from "metabase/meta/types/Visualization";
 
-export default class BarFunnel extends Component<*, VisualizationProps, *> {
-    render() {
-        return (
-            <BarChart
-                 {...this.props}
-                 isScalarSeries={true}
-                 settings={{
-                     ...this.props.settings,
-                     ...getSettings(assocIn(this.props.series, [0, "card", "display"], "bar")),
-                     "bar.scalar_series": true
-                 }}
-             />
-        );
-    }
+export default class FunnelBar extends Component {
+  props: VisualizationProps;
+
+  render() {
+    return (
+      <BarChart
+        {...this.props}
+        isScalarSeries={true}
+        settings={{
+          ...this.props.settings,
+          ...getComputedSettingsForSeries(
+            assocIn(this.props.series, [0, "card", "display"], "bar"),
+          ),
+          "bar.scalar_series": true,
+        }}
+      />
+    );
+  }
 }

@@ -1,87 +1,92 @@
-import React, { Component, PropTypes } from "react";
+import React, { Component } from "react";
+import PropTypes from "prop-types";
 
-import GuiQueryEditor from "metabase/query_builder/components/GuiQueryEditor.jsx";
+import GuiQueryEditor from "metabase/query_builder/components/GuiQueryEditor";
+import { t } from "ttag";
+import * as Urls from "metabase/lib/urls";
 
-import { serializeCardForUrl } from "metabase/lib/card";
-
-import _ from "underscore";
 import cx from "classnames";
 
+import Question from "metabase-lib/lib/Question";
+
 export default class PartialQueryBuilder extends Component {
-    constructor(props, context) {
-        super(props, context);
-        this.state = {};
+  static propTypes = {
+    onChange: PropTypes.func.isRequired,
+    tableMetadata: PropTypes.object.isRequired,
+    updatePreviewSummary: PropTypes.func.isRequired,
+    previewSummary: PropTypes.string,
+  };
 
-        _.bindAll(this, "setQuery");
-    }
+  componentDidMount() {
+    const { value, tableMetadata } = this.props;
+    this.props.updatePreviewSummary({
+      type: "query",
+      database: tableMetadata.db_id,
+      query: {
+        ...value,
+        "source-table": tableMetadata.id,
+      },
+    });
+  }
 
-    static propTypes = {
-        onChange: PropTypes.func.isRequired,
-        tableMetadata: PropTypes.object.isRequired,
-        updatePreviewSummary: PropTypes.func.isRequired,
-        previewSummary: PropTypes.string
+  setDatasetQuery = datasetQuery => {
+    this.props.onChange(datasetQuery.query);
+    this.props.updatePreviewSummary(datasetQuery);
+  };
+
+  render() {
+    const {
+      features,
+      value,
+      metadata,
+      tableMetadata,
+      previewSummary,
+    } = this.props;
+
+    const datasetQuery = {
+      type: "query",
+      database: tableMetadata.db_id,
+      query: {
+        ...value,
+        "source-table": tableMetadata.id,
+      },
     };
 
-    componentDidMount() {
-        const { value, tableMetadata } = this.props;
-        this.props.updatePreviewSummary({
-            type: "query",
-            database: tableMetadata.db_id,
-            query: {
-                ...value,
-                source_table: tableMetadata.id
-            }
-        });
-    }
+    const query = new Question(
+      {
+        dataset_query: datasetQuery,
+      },
+      metadata,
+    ).query();
 
-    setQuery(query) {
-        this.props.onChange(query.query);
-        this.props.updatePreviewSummary(query);
-    }
+    const previewCard = {
+      dataset_query: datasetQuery,
+    };
+    const previewUrl = Urls.question(null, previewCard);
 
-    render() {
-        let { features, value, tableMetadata, previewSummary } = this.props;
-
-        let dataset_query = {
-            type: "query",
-            database: tableMetadata.db_id,
-            query: {
-                ...value,
-                source_table: tableMetadata.id
-            }
-        };
-
-        let previewCard = {
-            dataset_query: {
-                ...dataset_query,
-                query: {
-                    aggregation: ["rows"],
-                    breakout: [],
-                    filter: [],
-                    ...dataset_query.query
-                }
-            }
-        };
-        let previewUrl = "/q#" + serializeCardForUrl(previewCard);
-
-        return (
-            <div className="py1">
-                <GuiQueryEditor
-                    query={dataset_query}
-                    features={features}
-                    tableMetadata={tableMetadata}
-                    databases={tableMetadata && [tableMetadata.db]}
-                    setQueryFn={this.setQuery}
-                    isShowingDataReference={false}
-                    setDatabaseFn={null}
-                    setSourceTableFn={null}
-                >
-                    <div className="flex align-center mx2 my2">
-                        <span className="text-bold px3">{previewSummary}</span>
-                        <a data-metabase-event={"Data Model;Preview Click"} target={window.OSX ? null : "_blank"} className={cx("Button Button--primary")} href={previewUrl}>Preview</a>
-                    </div>
-                </GuiQueryEditor>
-            </div>
-        );
-    }
+    return (
+      <div className="py1">
+        <GuiQueryEditor
+          features={features}
+          query={query}
+          databases={tableMetadata && [tableMetadata.db]}
+          setDatabaseFn={null}
+          setSourceTableFn={null}
+          setDatasetQuery={this.setDatasetQuery}
+          isShowingDataReference={false}
+          supportMultipleAggregations={false}
+        >
+          <div className="flex align-center mx2 my2">
+            <span className="text-bold px3">{previewSummary}</span>
+            <a
+              data-metabase-event={"Data Model;Preview Click"}
+              target={window.OSX ? null : "_blank"}
+              className={cx("Button Button--primary")}
+              href={previewUrl}
+            >{t`Preview`}</a>
+          </div>
+        </GuiQueryEditor>
+      </div>
+    );
+  }
 }

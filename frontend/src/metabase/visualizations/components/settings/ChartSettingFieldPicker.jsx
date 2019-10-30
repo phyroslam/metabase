@@ -1,29 +1,67 @@
-import React, { Component, PropTypes } from "react";
+import React from "react";
+
+import { t } from "ttag";
+import cx from "classnames";
+import _ from "underscore";
 
 import Icon from "metabase/components/Icon";
-import cx from "classnames";
 
-import ChartSettingSelect from "./ChartSettingSelect.jsx";
+import ChartSettingSelect from "./ChartSettingSelect";
 
-const ChartSettingFieldPicker = ({ value, options, onChange, onRemove }) =>
-    <div className="flex align-center">
-        <ChartSettingSelect
-            value={value}
-            options={options}
-            onChange={onChange}
-            placeholder="Select a field"
-            placeholderNoOptions="No valid fields"
-            isInitiallyOpen={value === undefined}
-        />
+import { keyForColumn } from "metabase/lib/dataset";
+
+const ChartSettingFieldPicker = ({
+  value,
+  options,
+  onChange,
+  onRemove,
+  onShowWidget,
+  className,
+  columns,
+  showColumnSetting,
+}) => {
+  let columnKey;
+  if (value && showColumnSetting && columns) {
+    const column = _.findWhere(columns, { name: value });
+    if (column) {
+      columnKey = keyForColumn(column);
+    }
+  }
+  return (
+    <div className={cx(className, "flex align-center")}>
+      <ChartSettingSelect
+        value={value}
+        options={options}
+        onChange={onChange}
+        placeholder={t`Select a field`}
+        placeholderNoOptions={t`No valid fields`}
+        isInitiallyOpen={value === undefined}
+      />
+      {columnKey && (
         <Icon
-            name="close"
-            className={cx("ml1 text-grey-4 text-brand-hover cursor-pointer", {
-                "disabled hidden": !onRemove
-            })}
-            width={12} height={12}
-            onClick={onRemove}
+          name="gear"
+          className="ml1 text-medium text-brand-hover cursor-pointer"
+          onClick={() => {
+            onShowWidget({
+              id: "column_settings",
+              props: {
+                initialKey: columnKey,
+              },
+            });
+          }}
         />
+      )}
+      <Icon
+        name="close"
+        className={cx("ml1 text-medium text-brand-hover cursor-pointer", {
+          "disabled hidden": !onRemove,
+        })}
+        width={12}
+        height={12}
+        onClick={onRemove}
+      />
     </div>
-
+  );
+};
 
 export default ChartSettingFieldPicker;
